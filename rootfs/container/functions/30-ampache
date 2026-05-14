@@ -4,8 +4,8 @@
 
 ampache_bootstrap_filesystem() {
     create_folder \
-                    "${CACHE_PATH}" \
-                    "${LOG_PATH}" \
+                    "${CACHE_PATH}, \
+                    ${LOG_PATH}" \
                         "${NGINX_USER}":"${NGINX_GROUP}" 770
 
     if [ "${CONFIG_PATH%/}" != "${NGINX_SITE_AMPACHE_WEBROOT%/}"/config ]; then
