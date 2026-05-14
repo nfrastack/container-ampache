@@ -1,5 +1,0 @@
-# SPDX-FileCopyrightText: © 2026 Nfrastack <code@nfrastack.com>
-#
-# SPDX-License-Identifier: MIT
-
-*/{{MAINTENANCE_INTERVAL}} * * * * sudo -u "${NGINX_USER}" env NO_COLOR=1 php "${NGINX_SITE_AMPACHE_WEBROOT%/}"/bin/cron.inc

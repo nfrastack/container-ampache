@@ -191,7 +191,9 @@ ampache_configure_application() {
     ampache_cfg_update database_password "${DB_PASS}"
 
     if [ "${MAINTENANCE_INTERVAL}" -ge 1 ] && [ "${MAINTENANCE_INTERVAL}" -le 59 ]; then
-        update_template /container/cron/ampache MAINTENANCE_INTERVAL
+        write_file /container/cron/ampache <<EOF
+*/${MAINTENANCE_INTERVAL} * * * * sudo -u "${NGINX_USER}" env NO_COLOR=1 php "${NGINX_SITE_AMPACHE_WEBROOT%/}"/bin/cli run:cronProcess
+EOF
     else
         print_error "[ampache_configure_application] MAINTENANCE_INTERVAL must be between 1 and 59, skipping cron template update"
         exit 1
@@ -199,11 +201,11 @@ ampache_configure_application() {
     ampache_cfg_update date_timezone "${TIMEZONE}"
     ampache_cfg_update debug "true"
     case "${LOG_LEVEL,,}" in
-        basic | 1) LOG_LEVEL="1" ;;
-        error | 2) LOG_LEVEL="2" ;;
-        error_full | 3) LOG_LEVEL="3" ;;
-        general |4 ) LOG_LEVEL="4" ;;
-        full | 5) LOG_LEVEL="5" ;;
+        basic | 1 )     LOG_LEVEL=1 ;;
+        error | 2 )     LOG_LEVEL=2 ;;
+        error_full | 3) LOG_LEVEL=3 ;;
+        general | 4 )   LOG_LEVEL=4 ;;
+        full | 5)       LOG_LEVEL=5 ;;
     esac
     ampache_cfg_update debug_level "${LOG_LEVEL}"
     ampache_cfg_update log_path "${LOG_PATH}"
