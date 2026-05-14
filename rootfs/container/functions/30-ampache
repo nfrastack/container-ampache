@@ -222,6 +222,8 @@ EOF
         if [ -n "${ARTIST_ART_PATH}" ] ; then AMPACHE_ARTIST_ART_FOLDER="${ARTIST_ART_PATH}"; fi
         ampache_cfg_update artist_art_folder "${AMPACHE_ARTIST_ART_FOLDER}"
     fi
+
+    ampache_cfg_update local_web_path "http://localhost"
 }
 
 ampache_configure_db() {
