@@ -1,0 +1,71 @@
+services:
+  ampache-app:
+    image: docker.io/nfrastack/ampache:latest
+    container_name: ampache-app
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.ampache.rule=Host(`ampache.example.com`)
+      - traefik.http.services.ampache.loadbalancer.server.port=80
+    ports:
+      - 8001:80
+    volumes:
+      - ./config:/config
+      - ./data:/data
+      - ./logs:/logs
+    environment:
+      - CONTAINER_NAME=ampache-app
+      - TIMEZONE=America/Vancouver
+
+      - DB_HOST=ampache-db
+      - DB_PORT=3306
+      - DB_NAME=ampache
+      - DB_USER=ampache
+      - DB_PASS=ampachepass
+
+      - ADMIN_USER=admin                # Only required for fresh DB
+      - ADMIN_EMAIL=admin@example.com   # Only required for fresh DB
+    networks:
+      - proxy
+      - services
+    restart: always
+
+  ampache-db:
+    image: docker.io/nfrastack/mariadb:11.8
+    container_name: ampache-db
+    volumes:
+      - ./db:/data
+    environment:
+      - TIMEZONE=America/Vancouver
+      - CONTAINER_NAME=ampache-db
+
+      - ROOT_PASS=rootpassword
+      - DB_NAME=ampache
+      - DB_USER=ampache
+      - DB_PASS=ampachepass
+    networks:
+      - services
+    restart: always
+
+  ampache-db-backup:
+    image: docker.io/tiredofit/db-backup
+    container_name: ampache-db-backup
+    volumes:
+      - ./dbbackup:/backup
+    environment:
+      - DB01_HOST=ampache-db
+      - DB01_TYPE=mariadb
+      - DB01_NAME=ampache
+      - DB01_USER=ampache
+      - DB01_PASS=ampachepass
+      - DB01_BACKUP_INTERVAL=1440
+      - DB01_BACKUP_BEGIN=0000
+      - DB01_CLEANUP_TIME=8640
+    networks:
+      - services
+    restart: always
+
+networks:
+  proxy:
+    external: true
+  services:
+    external: true

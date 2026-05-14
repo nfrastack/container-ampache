@@ -1,0 +1,49 @@
+#!/command/with-contenv bash
+# SPDX-FileCopyrightText: © 2026 Nfrastack <code@nfrastack.com>
+#
+# SPDX-License-Identifier: MIT
+
+source /container/base/functions/container/init
+prepare_service
+SERVICE_NAME="ampache"
+
+transform_var file \
+                    DB_CHARSET \
+                    DB_HOST \
+                    DB_NAME \
+                    DB_PASS \
+                    DB_PORT \
+                    DB_USER
+
+ampache_catalog_watch_paths _watch_paths || true
+if var_false "${ENABLE_CATALOG_WATCH}" || [ ${#_watch_paths[@]} -eq 0 ]; then
+    print_debug "[catalog_watch] Catalog watch disabled"
+    service_stop 30-ampache
+fi
+
+ampache_bootstrap_filesystem
+
+if [ "${SETUP_TYPE,,}" = "auto" ] ; then
+    sanity_db
+    db_ready mariadb
+
+    if [ ! -f "${CONFIG_PATH%/}"/"${CONFIG_FILE}" ]; then
+        print_notice "[ampache] No config file found - copying sample"
+        cp /container/data/ampache/config/ampache.cfg.php.dist "${CONFIG_PATH%/}"/"${CONFIG_FILE}"
+    fi
+
+    ampache_configure_db
+    ampache_configure_application
+    ampache_cfg_passthrough
+    ampache_configure_user
+    ampache_compare_version
+
+else
+    print_warn "SETUP_TYPE='${SETUP_TYPE}' - skipping config generation, migrations, admin bootstrap"
+fi
+
+ampache_update_bashrc
+
+custom_files "${CONTAINER_CUSTOM_PATH}" "${NGINX_SITE_AMPACHE_WEBROOT}" "${NGINX_USER}" "${NGINX_GROUP}"
+
+liftoff

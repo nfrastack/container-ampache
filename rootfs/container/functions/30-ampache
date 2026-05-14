@@ -1,0 +1,329 @@
+# SPDX-FileCopyrightText: © 2026 Nfrastack <code@nfrastack.com>
+#
+# SPDX-License-Identifier: MIT
+
+ampache_bootstrap_filesystem() {
+    create_folder \
+                    "${CACHE_PATH}" \
+                    "${LOG_PATH}" \
+                        "${NGINX_USER}":"${NGINX_GROUP}" 770
+
+    if [ "${CONFIG_PATH%/}" != "${NGINX_SITE_AMPACHE_WEBROOT%/}"/config ]; then
+        create_folder \
+                        "${CONFIG_PATH}" \
+                        "${NGINX_USER}":"${NGINX_GROUP}" 770
+        rm -rf "${NGINX_SITE_AMPACHE_WEBROOT%/}"/config
+        ln -sf "${CONFIG_PATH%/}" "${NGINX_SITE_AMPACHE_WEBROOT%/}"/config
+    fi
+
+    if [ -n "${METADATA_PATH}" ] || [ -n "${AMPACHE_LOCAL_METADATA_DIR}" ]; then
+        if [ -n "${METADATA_PATH}" ] ; then AMPACHE_LOCAL_METADATA_DIR="${METADATA_PATH}"; fi
+        create_folder \
+                        "${AMPACHE_LOCAL_METADATA_DIR}" \
+                            "${NGINX_USER}":"${NGINX_GROUP}" 770
+    fi
+
+    if [ -n "${ARTIST_ART_PATH}" ] || [ -n "${AMPACHE_ARTIST_ART_FOLDER}" ]; then
+        if [ -n "${ARTIST_ART_PATH}" ] ; then AMPACHE_ARTIST_ART_FOLDER="${ARTIST_ART_PATH}"; fi
+        create_folder \
+                        "${AMPACHE_ARTIST_ART_FOLDER}" \
+                            "${NGINX_USER}":"${NGINX_GROUP}" 770
+    fi
+}
+
+ampache_cfg_remove() {
+    # ampache_cfg_remove KEY
+    # Comments out an active key = "value" line by prepending ';'
+    local _key="$1"
+    local _cfg="${CONFIG_PATH%/}/${CONFIG_FILE}"
+    local _tmp
+
+    if [ ! -f "${_cfg}" ]; then
+        return
+    fi
+    if ! grep -qE "^[[:space:]]*${_key}[[:space:]]*=" "${_cfg}" 2>/dev/null; then
+        return
+    fi
+
+    print_debug "[cfg_remove] Commenting out cfg entry '${_key}'"
+
+    _tmp="${_cfg}.tmp.$$"
+    AMPACHE_CFG_KEY="${_key}" awk '
+        BEGIN { key = ENVIRON["AMPACHE_CFG_KEY"] }
+        match($0, "^[[:space:]]*" key "[[:space:]]*=") { print ";" $0; next }
+        { print }
+    ' "${_cfg}" > "${_tmp}"
+    cat "${_tmp}" > "${_cfg}"
+    rm -f "${_tmp}"
+}
+
+ampache_cfg_update() {
+    # ampache_cfg_update KEY VALUE
+    # Set or update key = "value" in the ampache cfg file.
+    # Replaces the first active or commented match; appends if not found.
+    local _key="$1"
+    local _val="$2"
+    local _cfg="${CONFIG_PATH%/}/${CONFIG_FILE}"
+    local _line _tmp
+
+    if [ ! -f "${_cfg}" ]; then
+        print_debug "[cfg_update] No config file - skipping update for '${_key}'"
+        return
+    fi
+
+    _line="${_key} = \"${_val}\""
+    print_debug "[cfg_update] Setting cfg '${_key}' = '${_val}'"
+
+    _tmp="${_cfg}.tmp.$$"
+    AMPACHE_CFG_KEY="${_key}" AMPACHE_CFG_LINE="${_line}" awk '
+        BEGIN {
+            key   = ENVIRON["AMPACHE_CFG_KEY"]
+            line  = ENVIRON["AMPACHE_CFG_LINE"]
+            found = 0
+        }
+        match($0, "^[[:space:]]*" key "[[:space:]]*=")              { if (!found) { print line; found = 1 } next }
+        match($0, "^[[:space:]]*;[[:space:]]*" key "[[:space:]]*=") { if (!found) { print line; found = 1 } next }
+        { print }
+        END { if (!found) print line }
+    ' "${_cfg}" > "${_tmp}"
+    cat "${_tmp}" > "${_cfg}"
+    rm -f "${_tmp}"
+}
+
+ampache_cfg_passthrough() {
+    # Iterate env vars matching AMPACHE_CFG_PREFIX, strip the prefix, lowercase the key, then call ampache_cfg_update / ampache_cfg_remove.
+    local _prefix="${AMPACHE_CFG_PREFIX}"
+    if [ -z "${_prefix}" ]; then
+        print_debug "[cfg_passthrough] AMPACHE_CFG_PREFIX is empty - skipping cfg-prefix pass-through"
+        return
+    fi
+    if [ ! -f "${CONFIG_PATH%/}/${CONFIG_FILE}" ]; then
+        print_debug "[cfg_passthrough] No config file present - skipping cfg-prefix pass-through"
+        return
+    fi
+
+    transform_var file "${_prefix}*"
+    transform_var env  "${_prefix}*"
+
+    print_debug "[cfg_passthrough] Applying passthrough (prefix='${_prefix}')"
+
+    local _line _name _stripped _value
+    while IFS= read -r _line; do
+        _name="${_line%%=*}"
+        case "${_name}" in
+            "${_prefix}"*) ;;
+            *) continue ;;
+        esac
+
+        case "${_name}" in
+            AMPACHE_CFG_PREFIX ) continue ;;
+        esac
+
+        case "${_name}" in
+            *_FILE) continue ;;
+        esac
+
+        _stripped="${_name#${_prefix}}"
+        if [ -z "${_stripped}" ]; then
+            continue
+        fi
+        _value="${_line#*=}"
+
+        case "${_value,,}" in
+            unset|null|"")
+                ampache_cfg_remove "${_stripped,,}"
+            ;;
+            *)
+                ampache_cfg_update "${_stripped,,}" "${_value}"
+            ;;
+        esac
+    done < <(printenv)
+}
+
+ampache_compare_version() {
+    local _image_version
+    local _current_version
+    local _version_file
+    local _timestamp
+
+    _image_version=$(grep -o "ADD: Ampache .* |" "/container/build/${IMAGE_NAME//\//_}/build.log" | awk '{print $3}')
+    _version_file="${CONFIG_PATH%/}/.ampache-version"
+    _timestamp=$(TZ=${TIMEZONE} date +'%Y-%m-%d %H:%M:%S %Z')
+
+    if [ ! -f "${_version_file}" ]; then
+        print_debug "[compare_version] First install - writing version file"
+        echo "${_image_version} first installed on ${_timestamp}" | write_file "${NGINX_USER}":"${NGINX_GROUP}"@"${_version_file}":660
+        silent sudo -u "${NGINX_USER}" php "${NGINX_SITE_AMPACHE_WEBROOT%/}"/bin/cli admin:updateDatabase
+        return
+    fi
+
+    _current_version=$(head -n 1 "${_version_file}" | awk '{print $1}')
+
+    if [ "${_image_version}" = "${_current_version}" ]; then
+        print_debug "[compare_version] Version unchanged (${_image_version}) - running migrations"
+        silent sudo -u "${NGINX_USER}" php "${NGINX_SITE_AMPACHE_WEBROOT%/}"/bin/cli admin:updateDatabase
+        return
+    fi
+
+    if var_false "${ENABLE_AUTO_UPDATE}"; then
+        print_warn "[compare_version] Image is ${_image_version} but installed version is ${_current_version} - ENABLE_AUTO_UPDATE is false, skipping upgrade"
+        return
+    fi
+
+    print_warn "[compare_version] Upgrading Ampache ${_current_version} to ${_image_version}"
+    silent sudo -u "${NGINX_USER}" php "${NGINX_SITE_AMPACHE_WEBROOT%/}"/bin/cli admin:updateDatabase
+    sed -i "1i ${_image_version} upgraded on ${_timestamp}" "${_version_file}"
+}
+
+ampache_configure_application() {
+    print_debug "[configure_db] Writing DB config to '${CONFIG_PATH%/}/${CONFIG_FILE}'"
+    transform_var file \
+                        DB_HOST \
+                        DB_NAME \
+                        DB_PASS \
+                        DB_PORT \
+                        DB_USER
+
+    ampache_cfg_update database_hostname "${DB_HOST}"
+    ampache_cfg_update database_port     "${DB_PORT}"
+    ampache_cfg_update database_name     "${DB_NAME}"
+    ampache_cfg_update database_username "${DB_USER}"
+    ampache_cfg_update database_password "${DB_PASS}"
+
+    if [ "${MAINTENANCE_INTERVAL}" -ge 1 ] && [ "${MAINTENANCE_INTERVAL}" -le 59 ]; then
+        update_template /container/cron/ampache MAINTENANCE_INTERVAL
+    else
+        print_error "[ampache_configure_application] MAINTENANCE_INTERVAL must be between 1 and 59, skipping cron template update"
+        exit 1
+    fi
+    ampache_cfg_update date_timezone "${TIMEZONE}"
+    ampache_cfg_update debug "true"
+    case "${LOG_LEVEL,,}" in
+        basic | 1) LOG_LEVEL="1" ;;
+        error | 2) LOG_LEVEL="2" ;;
+        error_full | 3) LOG_LEVEL="3" ;;
+        general |4 ) LOG_LEVEL="4" ;;
+        full | 5) LOG_LEVEL="5" ;;
+    esac
+    ampache_cfg_update debug_level "${LOG_LEVEL}"
+    ampache_cfg_update log_path "${LOG_PATH}"
+    ampache_cfg_update log_filename "${LOG_FILE}"
+    create_logrotate ampache "${LOG_PATH%/}"/"${LOG_FILE}" ampache "${NGINX_USER}" "${NGINX_GROUP}"
+    ampache_cfg_update cache_path "${CACHE_PATH}"
+
+    if [ -n "${METADATA_PATH}" ] || [ -n "${AMPACHE_LOCAL_METADATA_DIR}" ]; then
+        if [ -n "${METADATA_PATH}" ] ; then AMPACHE_LOCAL_METADATA_DIR="${METADATA_PATH}"; fi
+        ampache_cfg_update metadata_path "${AMPACHE_LOCAL_METADATA_DIR}"
+    fi
+
+    if [ -n "${ARTIST_ART_PATH}" ] || [ -n "${AMPACHE_ARTIST_ART_FOLDER}" ]; then
+        if [ -n "${ARTIST_ART_PATH}" ] ; then AMPACHE_ARTIST_ART_FOLDER="${ARTIST_ART_PATH}"; fi
+        ampache_cfg_update artist_art_folder "${AMPACHE_ARTIST_ART_FOLDER}"
+    fi
+}
+
+ampache_configure_db() {
+    local _check_sql
+    local _exists
+    local _sqlfile="${NGINX_SITE_AMPACHE_WEBROOT%/}/resources/sql/ampache.sql"
+
+    _check_sql="SELECT 1 FROM information_schema.tables WHERE table_schema='${DB_NAME}' AND table_name='preferences' LIMIT 1;"
+    _exists=$(mariadb -h"${DB_HOST}" -P"${DB_PORT}" -u"${DB_USER}" -p"${DB_PASS}" -N -s -e "${_check_sql}" 2>/dev/null || true)
+
+    if [ -n "${_exists}" ]; then
+        print_debug "[ensure_preferences] 'preferences' table exists in ${DB_NAME}"
+        return 0
+    fi
+
+    print_info "New database detected - importing schema"
+    if mysql -h"${DB_HOST}" -P"${DB_PORT}" -u"${DB_USER}" -p"${DB_PASS}" "${DB_NAME}" < "${_sqlfile}" 2>/dev/null; then
+        print_debug "[ensure_preferences] Schema import completed"
+        return 0
+    else
+        print_error "[ensure_preferences] Schema import failed"
+        return 1
+    fi
+}
+
+ampache_configure_user() {
+    if [ -z "$(sudo -u "${NGINX_USER}" php "${NGINX_SITE_AMPACHE_WEBROOT}"/bin/cli admin:listUsers)" ]; then
+        print_info "Bootstrapping admin user"
+        transform_var file \
+                        ADMIN_EMAIL \
+                        ADMIN_NAME \
+                        ADMIN_PASS \
+                        ADMIN_USER
+
+        sanity_var ADMIN_USER "Admin Username"
+        sanity_var ADMIN_PASS "Admin Password"
+
+        _addusercmd=(silent sudo -u "${NGINX_USER}" php "${NGINX_SITE_AMPACHE_WEBROOT}"/bin/cli admin:addUser "${ADMIN_USER}")
+        _addusercmd+=( -p "${ADMIN_PASS}" )
+        _addusercmd+=( -l 100 )
+        if [ -n "${ADMIN_NAME}" ]; then
+            _addusercmd+=( -n "${ADMIN_NAME}" )
+        fi
+        if [ -n "${ADMIN_EMAIL}" ]; then
+            _addusercmd+=( -e "${ADMIN_EMAIL}" )
+        fi
+
+        "${_addusercmd[@]}" || print_error "Adding admin user failed"
+    else
+        print_debug "Existing users detected"
+    fi
+}
+
+ampache_catalog_watch_paths() {
+    # ampache_catalog_watch_paths [dest_array]
+    # Scan env for CATALOG_<NAME>_PATH variables and print each valid directory path.
+    local _dest_var="$1"
+    local _line _name _value
+    local -a _paths=()
+    while IFS= read -r _line; do
+        _name="${_line%%=*}"
+        case "${_name}" in
+            CATALOG_*_PATH) ;;
+            *) continue ;;
+        esac
+        _value="${_line#*=}"
+        if [ -z "${_value}" ]; then
+            print_debug "[catalog_watch_paths] '${_name}' is empty - skipping"
+            continue
+        fi
+        if [ ! -d "${_value}" ]; then
+            print_warn "[catalog_watch_paths] '${_name}=${_value}' is not a valid directory - skipping"
+            continue
+        fi
+        print_debug "[catalog_watch_paths] Adding watch path '${_value}' (from ${_name})"
+        _paths+=("${_value}")
+    done < <(printenv)
+
+    if [ ${#_paths[@]} -eq 0 ]; then
+        print_warn "[catalog_watch_paths] No valid CATALOG_<NAME>_PATH variables found - nothing to watch"
+        if [ -n "${_dest_var}" ]; then
+            eval "${_dest_var}=()"
+        fi
+        return 1
+    fi
+
+    if [ -n "${_dest_var}" ]; then
+        eval "${_dest_var}=(\"\${_paths[@]}\")"
+    fi
+
+    printf '%s\n' "${_paths[@]}"
+}
+
+ampache_update_bashrc() {
+    if check_container_restarted ; then
+        write_file -a root:root@/root/.bashrc <<EOF
+cli() {
+    export oldpwd="\$(pwd)"
+    cd ${NGINX_SITE_AMPACHE_WEBROOT}
+    sudo -u ${NGINX_USER} php "${NGINX_SITE_AMPACHE_WEBROOT%/}"/bin/cli "\$@"
+    cd "\${oldpwd}"
+}
+
+alias ampache-cli='cli'
+EOF
+    fi
+}
