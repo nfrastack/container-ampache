@@ -319,10 +319,8 @@ ampache_catalog_watch_paths() {
 
 ampache_generate_catalog_watch_services() {
     # Generate per-catalog s6 run scripts under /container/run/available/
-    # For each CATALOG_<NAME>_PATH env var a 30-ampache-catalog-<name>/run is written.
-    # Called from init.d/30-ampache; zzz-container picks them up after init completes.
+    # For each CATALOG_<NAME>_PATH env var a 30-ampache-catalog-<name>/run
 
-    # Clean up any services generated on a previous run
     local _old_dir
     for _old_dir in /container/run/available/30-ampache-catalog-*/; do
         if [ -d "${_old_dir}" ]; then
@@ -362,7 +360,7 @@ ampache_generate_catalog_watch_services() {
         sed \
             -e "s|{{CATALOG_NAME}}|${_catalog_name}|g" \
             -e "s|{{CATALOG_PATH}}|${_value}|g" \
-            /container/data/ampache/catalog-watch.run \
+            /container/data/ampache/run/available/catalog-watch/run.template \
             > "${_service_dir}/run"
         chmod +x "${_service_dir}/run"
         _count=$(( _count + 1 ))
