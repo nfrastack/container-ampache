@@ -192,7 +192,7 @@ ampache_configure_application() {
 
     if [ "${MAINTENANCE_INTERVAL}" -ge 1 ] && [ "${MAINTENANCE_INTERVAL}" -le 59 ]; then
         write_file /container/cron/ampache <<EOF
-*/${MAINTENANCE_INTERVAL} * * * * sudo -u "${NGINX_USER}" env NO_COLOR=1 php "${NGINX_SITE_AMPACHE_WEBROOT%/}"/bin/cli run:cronProcess
+*/${MAINTENANCE_INTERVAL} * * * * sudo -u "${NGINX_USER}" env NO_COLOR=1 php "${NGINX_SITE_AMPACHE_WEBROOT%/}"/bin/cli run:cronProcess > /dev/null 2>&1
 EOF
     else
         print_error "[ampache_configure_application] MAINTENANCE_INTERVAL must be between 1 and 59, skipping cron template update"
