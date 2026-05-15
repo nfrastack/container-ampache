@@ -1,0 +1,37 @@
+#!/command/with-contenv bash
+# SPDX-FileCopyrightText: © 2026 Nfrastack <code@nfrastack.com>
+#
+# SPDX-License-Identifier: MIT
+
+source /container/base/functions/container/init
+prepare_service defaults 30-ampache
+SERVICE_NAME="ampache-catalog-{{CATALOG_NAME}}"
+prepare_service single
+check_container_initialized
+check_service_initialized init 30-ampache
+liftoff
+
+_watch_path="{{CATALOG_PATH}}"
+_catalog_name="{{CATALOG_NAME}}"
+_ext_regex="${CATALOG_WATCH_EXTENSIONS//,/|}"
+
+print_debug "[catalog_watch/{{CATALOG_NAME}}] Watching: {{CATALOG_PATH}}"
+print_debug "[catalog_watch/{{CATALOG_NAME}}] Extensions: ${CATALOG_WATCH_EXTENSIONS}"
+
+inotifywait -m -r \
+    --event close_write \
+    --event moved_to \
+    --event create \
+    --event delete \
+    --format '%w%f' \
+    "{{CATALOG_PATH}}" |
+while IFS= read -r _file; do
+    if [[ "${_file}" =~ \.(${_ext_regex})$ ]]; then
+        print_debug "[catalog_watch/{{CATALOG_NAME}}] Detected: ${_file}"
+        if var_true "${CATALOG_WATCH_CLEAN}"; then
+            silent sudo -u "${NGINX_USER}" env NO_COLOR=1 php "${NGINX_SITE_AMPACHE_WEBROOT%/}"/bin/cli run:updateCatalogFile -n "{{CATALOG_NAME}}" -f "${_file}" -cage
+        else
+            silent sudo -u "${NGINX_USER}" env NO_COLOR=1 php "${NGINX_SITE_AMPACHE_WEBROOT%/}"/bin/cli run:updateCatalogFile -n "{{CATALOG_NAME}}" -f "${_file}" -age
+        fi
+    fi
+done

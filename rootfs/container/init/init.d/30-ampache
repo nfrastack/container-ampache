@@ -15,10 +15,9 @@ transform_var file \
                     DB_PORT \
                     DB_USER
 
-ampache_catalog_watch_paths _watch_paths || true
-if var_false "${ENABLE_CATALOG_WATCH}" || [ ${#_watch_paths[@]} -eq 0 ]; then
-    print_debug "[catalog_watch] Catalog watch disabled"
-    service_stop 30-ampache
+service_stop 30-ampache
+if var_true "${ENABLE_CATALOG_WATCH}"; then
+    ampache_generate_catalog_watch_services || print_warn "[catalog_watch] No valid catalog paths found - catalog watch will not run"
 fi
 
 ampache_bootstrap_filesystem

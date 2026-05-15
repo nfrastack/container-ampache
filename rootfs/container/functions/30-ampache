@@ -317,6 +317,64 @@ ampache_catalog_watch_paths() {
     printf '%s\n' "${_paths[@]}"
 }
 
+ampache_generate_catalog_watch_services() {
+    # Generate per-catalog s6 run scripts under /container/run/available/
+    # For each CATALOG_<NAME>_PATH env var a 30-ampache-catalog-<name>/run is written.
+    # Called from init.d/30-ampache; zzz-container picks them up after init completes.
+
+    # Clean up any services generated on a previous run
+    local _old_dir
+    for _old_dir in /container/run/available/30-ampache-catalog-*/; do
+        if [ -d "${_old_dir}" ]; then
+            print_debug "[catalog_watch_services] Removing stale service '${_old_dir}'"
+            rm -rf "${_old_dir}"
+        fi
+    done
+
+    local _line _name _value _catalog_name _service_dir
+    local _count=0
+
+    while IFS= read -r _line; do
+        _name="${_line%%=*}"
+        case "${_name}" in
+            CATALOG_*_PATH) ;;
+            *) continue ;;
+        esac
+        _value="${_line#*=}"
+        if [ -z "${_value}" ]; then
+            print_debug "[catalog_watch_services] '${_name}' is empty - skipping"
+            continue
+        fi
+        if [ ! -d "${_value}" ]; then
+            print_warn "[catalog_watch_services] '${_name}=${_value}' is not a valid directory - skipping"
+            continue
+        fi
+
+        # CATALOG_MUSIC_PATH  ->  music
+        _catalog_name="${_name#CATALOG_}"
+        _catalog_name="${_catalog_name%_PATH}"
+        _catalog_name="${_catalog_name,,}"
+
+        _service_dir="/container/run/available/30-ampache-catalog-${_catalog_name}"
+        print_info "[catalog_watch_services] Creating service '30-ampache-catalog-${_catalog_name}' watching '${_value}'"
+        mkdir -p "${_service_dir}"
+
+        sed \
+            -e "s|{{CATALOG_NAME}}|${_catalog_name}|g" \
+            -e "s|{{CATALOG_PATH}}|${_value}|g" \
+            /container/data/ampache/catalog-watch.run \
+            > "${_service_dir}/run"
+        chmod +x "${_service_dir}/run"
+        _count=$(( _count + 1 ))
+    done < <(printenv)
+
+    if [ "${_count}" -eq 0 ]; then
+        print_warn "[catalog_watch_services] No valid CATALOG_<NAME>_PATH variables found"
+        return 1
+    fi
+    print_info "[catalog_watch_services] Generated ${_count} catalog watch service(s)"
+}
+
 ampache_update_bashrc() {
     if check_container_restarted ; then
         write_file -a root:root@/root/.bashrc <<EOF
