@@ -210,8 +210,16 @@ EOF
     ampache_cfg_update debug_level "${LOG_LEVEL}"
     ampache_cfg_update log_path "${LOG_PATH}"
     ampache_cfg_update log_filename "${LOG_FILE}"
+    ampache_cfg_update log_time_format "Y-m-d H:i:s"
     create_logrotate ampache "${LOG_PATH%/}"/"${LOG_FILE}" ampache "${NGINX_USER}" "${NGINX_GROUP}"
-    ampache_cfg_update cache_path "${CACHE_PATH}"
+    if var_true "${ENABLE_CACHE}"; then
+        ampache_cfg_update memory_cache "true"
+        ampache_cfg_update cache_path "${CACHE_PATH}"
+    else
+        ampache_cfg_update memory_cache "false"
+        ampache_cfg_update cache_path unset
+    fi
+
 
     if [ -n "${METADATA_PATH}" ] || [ -n "${AMPACHE_LOCAL_METADATA_DIR}" ]; then
         if [ -n "${METADATA_PATH}" ] ; then AMPACHE_LOCAL_METADATA_DIR="${METADATA_PATH}"; fi
