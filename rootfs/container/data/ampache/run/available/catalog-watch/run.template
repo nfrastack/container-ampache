@@ -6,7 +6,7 @@
 source /container/base/functions/container/init
 prepare_service defaults 30-ampache
 SERVICE_NAME="ampache-catalog-{{CATALOG_NAME}}"
-prepare_service single
+prepare_service 30-ampache
 check_container_initialized
 check_service_initialized init 30-ampache
 liftoff
@@ -29,9 +29,9 @@ while IFS= read -r _file; do
     if [[ "${_file}" =~ \.(${_ext_regex})$ ]]; then
         print_debug "[catalog_watch/{{CATALOG_NAME}}] Detected: ${_file}"
         if var_true "${CATALOG_WATCH_CLEAN}"; then
-            silent sudo -u "${NGINX_USER}" env NO_COLOR=1 php "${NGINX_SITE_AMPACHE_WEBROOT%/}"/bin/cli run:updateCatalogFile -n "{{CATALOG_NAME}}" -f "${_file}" -cage
+            silent sudo -u ampache env NO_COLOR=1 php "${NGINX_SITE_AMPACHE_WEBROOT%/}"/bin/cli run:updateCatalogFile -n "{{CATALOG_NAME}}" -f "${_file}" -cage
         else
-            silent sudo -u "${NGINX_USER}" env NO_COLOR=1 php "${NGINX_SITE_AMPACHE_WEBROOT%/}"/bin/cli run:updateCatalogFile -n "{{CATALOG_NAME}}" -f "${_file}" -age
+            silent sudo -u ampache env NO_COLOR=1 php "${NGINX_SITE_AMPACHE_WEBROOT%/}"/bin/cli run:updateCatalogFile -n "{{CATALOG_NAME}}" -f "${_file}" -age
         fi
     fi
 done
