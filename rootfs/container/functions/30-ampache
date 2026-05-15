@@ -231,7 +231,7 @@ ampache_configure_db() {
     local _exists
     local _sqlfile="${NGINX_SITE_AMPACHE_WEBROOT%/}/resources/sql/ampache.sql"
 
-    _check_sql="SELECT 1 FROM information_schema.tables WHERE table_schema='${DB_NAME}' AND table_name='preferences' LIMIT 1;"
+    _check_sql="SELECT 1 FROM information_schema.tables WHERE table_schema='${DB_NAME}' AND table_name='preference' LIMIT 1;"
     _exists=$(mariadb -h"${DB_HOST}" -P"${DB_PORT}" -u"${DB_USER}" -p"${DB_PASS}" -N -s -e "${_check_sql}" 2>/dev/null || true)
 
     if [ -n "${_exists}" ]; then

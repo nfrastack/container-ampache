@@ -34,6 +34,7 @@ RUN echo "" && \
                 10-nginx/NGINX_SITE_ENABLED=ampache \
                 10-nginx/NGINX_SITE_AMPACHE_WEBROOT=/www/ampache \
                 10-nginx/NGINX_SITE_AMPACHE_WEBROOT_SUFFIX=/public \
+                10-nginx/NGINX_USER=ampache \
                 20-php-fpm/PHP_CREATE_SAMPLE_PHP=FALSE \
                 20-php-fpm/PHP_MODULE_ENABLE_FILEINFO=TRUE \
                 20-php-fpm/PHP_MODULE_ENABLE_GETTEXT=TRUE \
@@ -66,7 +67,7 @@ RUN echo "" && \
                             && \
     source /container/base/functions/container/build && \
     container_build_log image && \
-    create_user ampache 1000 apache 1000 /media && \
+    create_user ampache 1000 ampache 1000 /media && \
     package update && \
     package upgrade && \
     package install \
