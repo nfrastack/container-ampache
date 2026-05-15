@@ -68,7 +68,7 @@ RUN echo "" && \
     source /container/base/functions/container/build && \
     container_build_log image && \
     create_user ampache 1000 ampache 1000 /media && \
-    add_user_group ampache www-data & \
+    add_user_group ampache www-data && \
     package update && \
     package upgrade && \
     package install \
