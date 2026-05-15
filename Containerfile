@@ -35,6 +35,7 @@ RUN echo "" && \
                 10-nginx/NGINX_SITE_AMPACHE_WEBROOT=/www/ampache \
                 10-nginx/NGINX_SITE_AMPACHE_WEBROOT_SUFFIX=/public \
                 10-nginx/NGINX_USER=ampache \
+                10-nginx/NGINX_GROUP=ampache \
                 20-php-fpm/PHP_CREATE_SAMPLE_PHP=FALSE \
                 20-php-fpm/PHP_MODULE_ENABLE_FILEINFO=TRUE \
                 20-php-fpm/PHP_MODULE_ENABLE_GETTEXT=TRUE \
