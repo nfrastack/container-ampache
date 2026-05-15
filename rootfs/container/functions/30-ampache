@@ -235,7 +235,7 @@ ampache_configure_db() {
     _exists=$(mariadb -h"${DB_HOST}" -P"${DB_PORT}" -u"${DB_USER}" -p"${DB_PASS}" -N -s -e "${_check_sql}" 2>/dev/null || true)
 
     if [ -n "${_exists}" ]; then
-        print_debug "[ensure_preferences] 'preferences' table exists in ${DB_NAME}"
+        print_debug "'preference' table exists in ${DB_NAME}"
         return 0
     fi
 
