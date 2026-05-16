@@ -28,7 +28,7 @@ inotifywait -m -r \
     "{{CATALOG_PATH}}" |
 while IFS= read -r _file; do
     if [[ "${_file}" =~ \.(${_ext_regex})$ ]]; then
-        print_debug "[catalog_watch/{{CATALOG_NAME}}] Detected: ${_file}"
+        print_notice "[catalog_watch/{{CATALOG_NAME}}] Detected: ${_file}"
         if var_true "${CATALOG_WATCH_CLEAN}"; then
             silent sudo -u ampache env NO_COLOR=1 php "${NGINX_SITE_AMPACHE_WEBROOT%/}"/bin/cli run:updateCatalogFile -n "{{CATALOG_NAME}}" -f "${_file}" -cage
         else
