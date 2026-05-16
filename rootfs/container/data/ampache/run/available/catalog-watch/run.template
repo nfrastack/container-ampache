@@ -23,6 +23,7 @@ inotifywait -m -r \
     --event moved_to \
     --event create \
     --event delete \
+    --event modify \
     --format '%w%f' \
     "{{CATALOG_PATH}}" |
 while IFS= read -r _file; do

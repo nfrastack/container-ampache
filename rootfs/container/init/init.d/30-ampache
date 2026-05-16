@@ -22,7 +22,7 @@ fi
 
 ampache_bootstrap_filesystem
 
-if [ "${SETUP_TYPE,,}" = "auto" ] ; then
+if [ "${SETUP_TYPE,,}" = "auto" ]; then
     sanity_db
     db_ready mariadb
 
