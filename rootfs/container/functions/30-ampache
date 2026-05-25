@@ -171,7 +171,7 @@ ampache_compare_version() {
     fi
 
     print_warn "[compare_version] Upgrading Ampache ${_current_version} to ${_image_version}"
-    silent sudo -u "${NGINX_USER}" php "${NGINX_SITE_AMPACHE_WEBROOT%/}"/bin/cli admin:updateDatabase
+    silent sudo -u "${NGINX_USER}" php "${NGINX_SITE_AMPACHE_WEBROOT%/}"/bin/cli admin:updateDatabase -e
     sed -i "1i ${_image_version} upgraded on ${_timestamp}" "${_version_file}"
 }
 
