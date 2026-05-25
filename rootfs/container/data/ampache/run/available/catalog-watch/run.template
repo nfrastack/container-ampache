@@ -21,9 +21,7 @@ print_debug "[catalog_watch/{{CATALOG_NAME}}] Extensions: ${CATALOG_WATCH_EXTENS
 inotifywait -m -r -q \
     --event close_write \
     --event moved_to \
-    --event create \
     --event delete \
-    --event modify \
     --format '%w%f' \
     "{{CATALOG_PATH}}" |
 while IFS= read -r _file; do
