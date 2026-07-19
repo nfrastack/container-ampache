@@ -171,8 +171,28 @@ ampache_compare_version() {
     fi
 
     print_warn "[compare_version] Upgrading Ampache ${_current_version} to ${_image_version}"
+    ampache_upgrade_config
     silent sudo -u "${NGINX_USER}" php "${NGINX_SITE_AMPACHE_WEBROOT%/}"/bin/cli admin:updateDatabase -e
     sed -i "1i ${_image_version} upgraded on ${_timestamp}" "${_version_file}"
+}
+
+ampache_upgrade_config() {
+    local _cfg="${CONFIG_PATH%/}/${CONFIG_FILE}"
+    local _dist="/container/data/ampache/config/ampache.cfg.php.dist"
+
+    if [ ! -f "${_dist}" ]; then
+        print_warn "[upgrade_config] No dist file at ${_dist} - skipping config upgrade"
+        return
+    fi
+
+    print_warn "[upgrade_config] Replacing config with new dist for Ampache ${_image_version}"
+    cp "${_cfg}" "${_cfg}.bak.$(date +%s)"
+    cp "${_dist}" "${_cfg}"
+
+    ampache_configure_application
+    ampache_cfg_passthrough
+
+    print_info "[upgrade_config] Config upgraded - backup saved to ${_cfg}.bak.*"
 }
 
 ampache_configure_application() {
