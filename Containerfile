@@ -78,7 +78,13 @@ RUN echo "" && \
     php-ext prepare && \
     php-ext reset && \
     php-ext enable core && \
-    clone_git_repo "${AMPACHE_REPO_URL}" "${AMPACHE_VERSION}" ${NGINX_SITE_AMPACHE_WEBROOT} && \
+    # clone_git_repo "${AMPACHE_REPO_URL}" "${AMPACHE_VERSION}" ${NGINX_SITE_AMPACHE_WEBROOT} && \
+    mkdir -p "${NGINX_SITE_AMPACHE_WEBROOT}" && \
+    cd "${NGINX_SITE_AMPACHE_WEBROOT}" && \
+    git init && \
+    git remote add origin "${AMPACHE_REPO_URL}" && \
+    git fetch --depth 1 origin "${AMPACHE_VERSION}" && \
+    git checkout "${AMPACHE_VERSION}" && \
     mkdir -p /container/data/ampache/config && \
     cp "${NGINX_SITE_AMPACHE_WEBROOT}"/config/ampache.cfg.php.dist /container/data/ampache/config/ && \
     composer install --no-dev --prefer-source --no-interaction && \
