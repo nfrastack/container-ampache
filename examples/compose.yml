@@ -47,7 +47,7 @@ services:
     restart: always
 
   ampache-db-backup:
-    image: docker.io/tiredofit/db-backup
+    image: docker.io/nfrastack/db-backup
     container_name: ampache-db-backup
     volumes:
       - ./dbbackup:/backup
