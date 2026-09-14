@@ -18,7 +18,8 @@ LABEL \
         org.opencontainers.image.licenses="MIT"
 
 ARG \
-    AMPACHE_VERSION="8.1.0" \
+    #AMPACHE_VERSION="8.1.0" \
+    AMPACHE_VERSION="701524076bd9a69a01a2353a8c118cd02f622e2a" \
     AMPACHE_REPO_URL="https://github.com/ampache/ampache"
 
 COPY CHANGELOG.md /usr/src/container/CHANGELOG.md
