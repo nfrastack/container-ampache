@@ -1,3 +1,9 @@
+## 1.0.3 2026-10-02 <code at nfrastack dot com>
+
+   ### Added
+      - Ampache 8.2.1
+
+
 ## 1.0.2 2026-10-01 <code at nfrastack dot com>
 
    ### Added
