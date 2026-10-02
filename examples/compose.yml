@@ -52,6 +52,11 @@ services:
     volumes:
       - ./dbbackup:/backup
     environment:
+      - TIMEZONE=America/Vancouver
+      - CONTAINER_NAME=ampache-db-backup
+
+      - STATS_ENABLED=TRUE
+
       - DB01_HOST=ampache-db
       - DB01_TYPE=mariadb
       - DB01_NAME=ampache
