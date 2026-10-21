@@ -1,3 +1,9 @@
+## 1.0.5 2026-10-21 <code at nfrastack dot com>
+
+   ### Added
+      - Pin to nginx-php-fpm:8.1.6
+
+
 ## 1.0.4 2026-10-02 <code at nfrastack dot com>
 
    ### Added
